@@ -63,6 +63,14 @@ class EqualWeightPortfolio:
         TODO: Complete Task 1 Below
         """
 
+        # Number of assets excluding the specified one (SPY)
+        n = len(assets)
+        equal_weight = 1 / n
+
+        # Assign equal weight for each date
+        for date in df.index:
+            self.portfolio_weights.loc[date, assets] = equal_weight
+
         """
         TODO: Complete Task 1 Above
         """
@@ -114,6 +122,24 @@ class RiskParityPortfolio:
         TODO: Complete Task 2 Below
         """
 
+        for i in range(self.lookback+1, len(df)):
+            # Past lookback-day returns
+            R_n = df_returns[assets].iloc[i - self.lookback : i]
+
+            # Compute volatility (std)
+            sigma = R_n.std().values
+
+            # Avoid division by zero
+            sigma = np.where(sigma == 0, 1e-6, sigma)
+
+            # Inverse volatility
+            inv_vol = 1.0 / sigma
+
+            # Normalize weights so they sum to 1
+            weights = inv_vol / inv_vol.sum()
+
+            # Assign weights to this date
+            self.portfolio_weights.loc[df.index[i], assets] = weights
 
 
         """
@@ -188,10 +214,27 @@ class MeanVariancePortfolio:
                 TODO: Complete Task 3 Below
                 """
 
+                """
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
                 w = model.addMVar(n, name="w", ub=1)
                 model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                """
+
+                # Decision variable: long-only weights, no leverage
+                w = model.addMVar(n, lb=0.0, ub=1.0, name="w")
+
+                # Budget constraint
+                model.addConstr(w.sum() == 1.0)
+
+                # Linear part: w^T μ
+                linear_term = mu @ w
+
+                # Quadratic part: (gamma / 2) * w^T Σ w
+                quad_term = (gamma / 2.0) * (w @ Sigma @ w)
+
+                # Full objective (maximize)
+                model.setObjective(linear_term - quad_term, gp.GRB.MAXIMIZE)
 
                 """
                 TODO: Complete Task 3 Above
